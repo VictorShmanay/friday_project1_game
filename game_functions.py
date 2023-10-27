@@ -2,6 +2,7 @@ import sys
 import pygame as pg
 from bullet import Bullet
 from alien import Alien
+from time import sleep
 
 
 def check_keydown_events(event, settings, screen, ship, bullets):
@@ -45,11 +46,20 @@ def update_screen(settings, screen, ship, bullets, aliens):
     pg.display.flip()  # обновление кадров в игре
 
 
-def update_bullets(bullets):
+def update_bullets(bullets, aliens, settings, ship, screen):
     bullets.update()  # применяю метод update ко ВСЕМ ПУЛЯМ В ГРУППЕ
     for bullet in bullets.copy():
         if bullet.rect.bottom <= 0:
             bullets.remove(bullet)
+    check_bullet_alien_collision(bullets,aliens,settings,screen, ship)
+
+def check_bullet_alien_collision(bullets, aliens, settings,screen, ship):
+    collisions = pg.sprite.groupcollide(bullets, aliens, True, True)
+
+    if len(aliens) == 0:
+        bullets.empty()
+        create_fleet(settings, screen, aliens, ship)
+
 
 
 def fire_bullet(settings, screen, ship, bullets):
@@ -57,6 +67,7 @@ def fire_bullet(settings, screen, ship, bullets):
     if len(bullets) < settings.bullets_allowed:
         new_bullet = Bullet(settings, screen, ship)  # создать снаряд
         bullets.add(new_bullet)  # добавить его в группу
+
 
 
 def get_number_aliens(settings, alien_width):
@@ -103,7 +114,34 @@ def change_fleet_direction(settings, aliens):
         alien.rect.y += settings.fleet_drop_speed
     settings.fleet_direction *= -1
 
-def update_aliens(aliens, settings):
+def update_aliens(aliens, settings, ship, stats, screen, bullets):
 
     check_fleet_edges(settings, aliens)
     aliens.update()
+
+    if pg.sprite.spritecollideany(ship, aliens):
+        ship_hit(settings, stats, screen, ship, aliens, bullets)
+
+    check_aliens_bottom(settings, stats, screen, ship, aliens, bullets)
+
+
+def ship_hit(settings, stats, screen, ship, aliens, bullets):
+    if stats.ships_left >0:
+        stats.ships_left -= 1
+        aliens.empty()
+        bullets.empty()
+
+        create_fleet(settings, screen, aliens, ship)
+        ship.center_ship()
+
+        sleep(1)
+    else:
+        stats.game_active = False
+
+
+def check_aliens_bottom(settings, stats, screen, ship, aliens, bullets):
+    screen_rect = screen.get_rect()
+    for alien in aliens.spetes():
+        if alien.rect.bottom >= screen_rect.bottom:
+            ship_hit(settings, stats, screen, ship, aliens, bullets)
+            break

@@ -2,12 +2,13 @@ import pygame as pg
 import game_functions as gf
 from settings import Settings
 from ship import Ship
-from alien import Alien
+from game_stats import GameStats
 from pygame.sprite import Group
 
 
 def run_game():
     ai_settings = Settings()
+    stats = GameStats(ai_settings)
 
     pg.init()  # инициализируем pygame
     screen = pg.display.set_mode((ai_settings.screen_width, ai_settings.screen_height))  # создаем экран игры разрешением 1280х720px
@@ -21,10 +22,11 @@ def run_game():
 
     while True:  # цикл игры
         gf.check_events(ai_settings, screen, ship, bullets)
-        ship.update()
-        gf.update_bullets(bullets)
-        gf.update_aliens(aliens, ai_settings)
-        gf.update_screen(ai_settings, screen, ship, bullets, aliens)
+        if stats.game_active:
+            ship.update()
+            gf.update_bullets(bullets, aliens, ai_settings, screen, ship)
+            gf.update_aliens(aliens, ai_settings, ship, screen, stats, bullets)
+            gf.update_screen(ai_settings, screen, ship, bullets, aliens)
 
 
 run_game()
