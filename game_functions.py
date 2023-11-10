@@ -25,7 +25,7 @@ def check_keyup_events(event, ship):
         ship.moving_left = False
 
 
-def check_events(settings, screen, ship, bullets, stats, btn, aliens):
+def check_events(settings, screen, ship, bullets, stats, btn, aliens, sb):
     for event in pg.event.get():  # обработчик событий pygame
         if event.type == pg.QUIT:
             pg.quit()
@@ -36,10 +36,10 @@ def check_events(settings, screen, ship, bullets, stats, btn, aliens):
             check_keyup_events(event, ship)
         elif event.type == pg.MOUSEBUTTONDOWN:
             mouse_x, mouse_y = pg.mouse.get_pos()
-            check_play_button(stats, btn, mouse_x, mouse_y, settings, screen, ship, bullets, aliens)
+            check_play_button(stats, btn, mouse_x, mouse_y, settings, screen, ship, bullets, aliens, sb)
 
 
-def check_play_button(stats, btn, mouse_x, mouse_y, settings, screen, ship, bullets, aliens):
+def check_play_button(stats, btn, mouse_x, mouse_y, settings, screen, ship, bullets, aliens, sb):
     """Запускает новую игру при нажатии на кнопку"""
     button_clicked = btn.rect.collidepoint(mouse_x, mouse_y)
     if button_clicked and not stats.game_active:
@@ -54,33 +54,47 @@ def check_play_button(stats, btn, mouse_x, mouse_y, settings, screen, ship, bull
         create_fleet(settings, screen, aliens, ship)
         ship.center_ship()
 
+        sb.prep_level()
+        sb.prep_score()
+        sb.prep_ships()
 
-def update_screen(settings, screen, ship, bullets, aliens, stats, btn):
+
+
+def update_screen(settings, screen, ship, bullets, aliens, stats, btn, sb):
     #screen.fill(settings.bg_color)  # заливаем экран игры цветом
     screen.blit(settings.bg, (0, 0))
     for bullet in bullets:
         bullet.draw_bullet()
     ship.blitme()
     aliens.draw(screen)
+
+    # вывод очков
+    sb.show_score()
+
     if not stats.game_active:
         btn.draw_button()
     pg.display.flip()  # обновление кадров в игре
 
 
-def update_bullets(bullets, aliens, settings, screen, ship):
+def update_bullets(bullets, aliens, settings, screen, ship, sb, stats):
     bullets.update()  # применяю метод update ко ВСЕМ ПУЛЯМ В ГРУППЕ
     for bullet in bullets.copy():
         if bullet.rect.bottom <= 0:
             bullets.remove(bullet)
-    check_bullet_alien_collision(bullets, aliens, settings, screen, ship)
+    check_bullet_alien_collision(bullets, aliens, settings, screen, ship, sb, stats)
 
 
-def check_bullet_alien_collision(bullets, aliens, settings, screen, ship):
+def check_bullet_alien_collision(bullets, aliens, settings, screen, ship, sb, stats):
     """Обработка коллизий пуль с пришельцами"""
     collisions = pg.sprite.groupcollide(bullets, aliens, True, True)
     # groupcollide - определяет столкновение экземпляров двух групп, параметры True отвечают за то, чтобы убрать группы а и б
+    for aliens in collisions.values():
+        stats.score += settings.alien_points * len(aliens)
+    sb.prep_score()
     if len(aliens) == 0:
         # уничтожаем существующие пули и обновляем флот
+        stats.level += 1
+        sb.prep_level()
         bullets.empty()
         settings.increase_speed()
         create_fleet(settings, screen, aliens, ship)
@@ -141,21 +155,22 @@ def change_fleet_direction(settings, aliens):
     settings.fleet_direction *= -1
 
 
-def update_aliens(aliens, settings, ship, stats, screen, bullets):
+def update_aliens(aliens, settings, ship, stats, screen, bullets, sb):
     """Обновляет позиции всех пришельцев во флоте"""
     check_fleet_edges(settings, aliens)
     aliens.update()
 
     if pg.sprite.spritecollideany(ship, aliens):  # если столкнулись с кораблем
-        ship_hit(settings, stats, screen, ship, aliens, bullets)
+        ship_hit(settings, stats, screen, ship, aliens, bullets, sb)
 
-    check_aliens_bottom(settings, stats, screen, ship, aliens, bullets)
+    check_aliens_bottom(settings, stats, screen, ship, aliens, bullets, sb)
 
 
-def ship_hit(settings, stats, screen, ship, aliens, bullets):
+def ship_hit(settings, stats, screen, ship, aliens, bullets, sb):
     """Обрабатывает столкновения пришельцев и корабля"""
     if stats.ships_left > 1:
         stats.ships_left -= 1
+        sb.prep_ships()
 
         aliens.empty()  # очищаем группу пришельцев
         bullets.empty()  # очищаем группу пуль
@@ -169,10 +184,10 @@ def ship_hit(settings, stats, screen, ship, aliens, bullets):
         pg.mouse.set_visible(True)  # показать курсор после проигрыша
 
 
-def check_aliens_bottom(settings, stats, screen, ship, aliens, bullets):
+def check_aliens_bottom(settings, stats, screen, ship, aliens, bullets, sb):
     """Проверка столкновения пришельцев с нижним краем экрана"""
     screen_rect = screen.get_rect()
     for alien in aliens.sprites():
         if alien.rect.bottom >= screen_rect.bottom:
-            ship_hit(settings, stats, screen, ship, aliens, bullets)
+            ship_hit(settings, stats, screen, ship, aliens, bullets, sb)
             break
